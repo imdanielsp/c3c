@@ -443,6 +443,7 @@ typedef struct _Decl
 	ResolveStatus resolve_status : 2;
 	bool is_packed : 1;
 	bool has_addr : 1;
+	bool is_varidic : 1;
 	void *backend_ref;
 	const char *cname;
 	uint32_t alignment;

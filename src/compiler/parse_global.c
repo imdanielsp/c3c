@@ -1014,11 +1014,18 @@ static inline bool parse_attributes(Context *context, Decl *parent_decl)
  *  | type_expression IDENT '=' initializer
  *  ;
  */
-static inline bool parse_param_decl(Context *context, Visibility parent_visibility, Decl*** parameters, bool type_only)
+static inline bool
+parse_param_decl(Context *context, Visibility parent_visibility, Decl*** parameters, bool* is_variadic, bool type_only)
 {
 	TypeInfo *type = TRY_TYPE_OR(parse_type(context), false);
+
+	if (try_consume(context, TOKEN_ELLIPSIS)) {
+		if (is_variadic) *is_variadic = true;
+	}
+
 	Decl *param = decl_new_var(context->tok.id, type, VARDECL_PARAM, parent_visibility);
 	param->span = type->span;
+	param->is_varidic = is_variadic ? *is_variadic : false;
 	if (!try_consume(context, TOKEN_IDENT))
 	{
 		param->name = NULL;
@@ -1056,7 +1063,7 @@ static inline bool parse_param_decl(Context *context, Visibility parent_visibili
  * parameter_type_list
  *  : parameter_list
  *  | parameter_list ',' ELLIPSIS
- *  | parameter_list ',' type_expression ELLIPSIS
+ *  | parameter_list ',' type_expression ELLIPSIS IDENT
  *  ;
  *
  * opt_parameter_type_list
@@ -1080,14 +1087,14 @@ static inline bool parse_opt_parameter_type_list(Context *context, Visibility pa
 			SEMA_TOKEN_ERROR(context->tok, "Variadic arguments should be the last in a parameter list.");
 			return false;
 		}
-		if (try_consume(context, TOKEN_ELLIPSIS))
-		{
-			signature->variadic = true;
+
+		bool is_variadic = try_consume(context, TOKEN_ELLIPSIS);
+		if (!is_variadic) {
+			if (!parse_param_decl(context, parent_visibility, &(signature->params), &is_variadic, is_interface))
+				return false;
 		}
-		else
-		{
-			if (!parse_param_decl(context, parent_visibility, &(signature->params), is_interface)) return false;
-		}
+		signature->variadic = is_variadic;
+
 		if (!try_consume(context, TOKEN_COMMA))
 		{
 			EXPECT_OR(TOKEN_RPAREN, false);
@@ -1562,7 +1569,7 @@ static inline bool parse_enum_spec(Context *context, TypeInfo **type_ref, Decl**
 	if (!try_consume(context, TOKEN_LPAREN)) return true;
 	while (!try_consume(context, TOKEN_RPAREN))
 	{
-		if (!parse_param_decl(context, parent_visibility, parameters_ref, false)) return false;
+		if (!parse_param_decl(context, parent_visibility, parameters_ref, NULL, false)) return false;
 		if (!try_consume(context, TOKEN_COMMA))
 		{
 			EXPECT_OR(TOKEN_RPAREN, false);

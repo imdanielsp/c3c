@@ -733,7 +733,10 @@ static inline bool sema_expr_analyse_func_invocation(Context *context, FunctionS
 				SEMA_ERROR(expr, "Too many parameters for this function.");
 				return false;
 			}
-			if (!sema_analyse_expr_of_required_type(context, NULL, arg, true)) return false;
+
+			Decl* last_param = func_params[func_param_count - 1];
+			Type* variadic_type = last_param->is_varidic ? last_param->type : NULL;
+			if (!sema_analyse_expr_of_required_type(context, variadic_type, arg, true)) return false;
 			actual_args[i] = arg;
 			expr->failable |= arg->failable;
 			continue;
